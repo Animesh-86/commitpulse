@@ -86,6 +86,7 @@ URL Parameter > Theme Default > System Fallback
 | `radius`  | `number`  | No         | `8`           | Border corner radius in pixels                        |
 | `speed`   | `string`  | No         | `8s`          | Radar scan animation duration (e.g. `4s`, `12s`)      |
 | `scale`   | `string`  | No         | `linear`      | Tower height scaling: `linear` or `log` (logarithmic) |
+| `font`    | `string`  | No         | CommitPulse default typography | Any **Google Font** name (e.g., `Orbitron`, `Inter`)  |
 | `refresh` | `boolean` | No         | `false`       | Bypass cache for real-time data                       |
 
 ### Theme Presets
@@ -104,6 +105,10 @@ URL Parameter > Theme Default > System Fallback
 <!-- The Dracula aesthetic -->
 
 ![](https://commitpulse.vercel.app/api/streak?user=jhasourav07&theme=dracula)
+
+<!-- Dynamic Google Fonts — Space-age look with Orbitron -->
+
+![](https://commitpulse.vercel.app/api/streak?user=jhasourav07&font=Orbitron)
 
 <!-- Fully custom — hot orange on void black -->
 

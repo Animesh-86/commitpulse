@@ -81,3 +81,11 @@ Usage: `/api/streak?user=yourusername&theme=rose`
 ![Nord](assets/themes/nord.png)
 
 Usage: `/api/streak?user=yourusername&theme=nord`
+
+## 🌆 Synthwave
+
+![Synthwave](assets/themes/synthwave.png)
+
+Retro 80s-inspired palette — deep indigo background, neon pink glow, crisp white text.
+
+Usage: `/api/streak?user=yourusername&theme=synthwave`

@@ -1,3 +1,5 @@
+// lib/validations.ts
+
 import { z } from 'zod';
 import {
   isValidHex,
@@ -118,6 +120,17 @@ export const streakParamsSchema = z.object({
       return isNaN(parsed) ? 1 : Math.max(0, Math.min(parsed, 7));
     })
     .default(1),
+  mode: z.enum(['commits', 'loc']).catch('commits').default('commits'),
+  repo: z.string().optional(),
+  org: z.string().optional(),
+  labels: z
+    .string()
+    .optional()
+    .transform((val) => val === 'true' || val === '1'),
+  labelColor: z
+    .string()
+    .optional()
+    .transform((val) => (val ? sanitizeHexColor(val, '7f8c8d') : undefined)),
 });
 
 export const githubParamsSchema = z.object({

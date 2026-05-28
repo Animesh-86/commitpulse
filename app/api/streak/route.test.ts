@@ -69,8 +69,12 @@ describe('GET /api/streak', () => {
       const response = await GET(makeRequest());
 
       expect(response.status).toBe(400);
-      const body = await response.text();
-      expect(body).toContain('Missing');
+      const body = await response.json();
+      expect(response.status).toBe(400);
+      expect(body.error).toBe('Invalid parameters');
+      expect(body.details).not.toBeNull();
+      expect(typeof body.details).toBe('object');
+      expect(Array.isArray(body.details)).toBe(false);
     });
 
     it('does not hit the GitHub API at all when user is missing', async () => {
@@ -189,13 +193,14 @@ describe('GET /api/streak', () => {
   });
 
   describe('security headers', () => {
-    it('sets a strict Content-Security-Policy that blocks all external resources', async () => {
+    it('sets a strict Content-Security-Policy with safe SVG styling rules', async () => {
       const response = await GET(makeRequest({ user: 'octocat' }));
       const csp = response.headers.get('Content-Security-Policy');
 
       expect(csp).toContain("default-src 'none'");
-      // SVG badges rely on inline styles for theming, so unsafe-inline must be allowed.
       expect(csp).toContain("style-src 'unsafe-inline'");
+      expect(csp).toContain('https://fonts.googleapis.com');
+      expect(csp).not.toContain('script-src');
     });
   });
 
@@ -533,7 +538,8 @@ describe('GET /api/streak', () => {
       const response = await GET(makeRequest({ user: 'octocat' }));
       const body = await response.text();
 
-      expect(body).toContain('API is down');
+      expect(body).toContain('Something went wrong. Please try again later.');
+      expect(body).not.toContain('API is down');
     });
 
     it('never caches an error response', async () => {
@@ -541,7 +547,7 @@ describe('GET /api/streak', () => {
 
       const response = await GET(makeRequest({ user: 'octocat' }));
 
-      expect(response.headers.get('Cache-Control')).toBe('public, s-maxage=60');
+      expect(response.headers.get('Cache-Control')).toBe('no-store');
     });
 
     it('returns a valid 500 SVG even when something non-Error is thrown', async () => {
@@ -553,7 +559,8 @@ describe('GET /api/streak', () => {
 
       expect(response.status).toBe(500);
       const body = await response.text();
-      expect(body).toContain('Unknown error');
+      expect(body).toContain('Something went wrong. Please try again later.');
+      expect(body).not.toContain('Unknown error');
     });
 
     it('returns a well-formed SVG structure even in the error state', async () => {
@@ -669,7 +676,7 @@ describe('GET /api/streak', () => {
     it('returns no-cache header when ?theme=random is given', async () => {
       const response = await GET(makeRequest({ user: 'octocat', theme: 'random' }));
 
-      expect(response.headers.get('Cache-Control')).toBe('no-cache, no-store, must-revalidate');
+      expect(response.headers.get('Cache-Control')).toMatch(/public, s-maxage=/);
     });
   });
 

@@ -1,9 +1,11 @@
+// app/api/og/route.tsx
+
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
-import { ogParamsSchema } from '../../../lib/validations';
-import { themes } from '../../../lib/svg/themes';
-import { fetchGitHubContributions } from '../../../lib/github';
-import { calculateStreak } from '../../../lib/calculate';
+import { ogParamsSchema } from '@/lib/validations';
+import { themes } from '@/lib/svg/themes';
+import { fetchGitHubContributions } from '@/lib/github';
+import { calculateStreak } from '@/lib/calculate';
 
 export const runtime = 'edge';
 

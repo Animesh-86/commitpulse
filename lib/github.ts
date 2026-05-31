@@ -249,9 +249,6 @@ export const GITHUB_CACHE_TTL_MS = 5 * 60 * 1000;
 const contributionsCache = new DistributedCache<ExtendedContributionData>(1000);
 const profileCache = new DistributedCache<GitHubUserProfile>(1000);
 const reposCache = new DistributedCache<GitHubRepo[]>(500);
-const pendingContributions = new Map<string, Promise<ExtendedContributionData>>();
-const pendingProfiles = new Map<string, Promise<GitHubUserProfile>>();
-const pendingRepos = new Map<string, Promise<GitHubRepo[]>>();
 
 interface GitHubUserProfile {
   login: string;
@@ -296,24 +293,6 @@ export function clearGitHubApiCacheForTests(): void {
   contributionsCache.clear();
   profileCache.clear();
   reposCache.clear();
-  pendingContributions.clear();
-  pendingProfiles.clear();
-  pendingRepos.clear();
-}
-
-function dedupeRequest<T>(
-  pendingRequests: Map<string, Promise<T>>,
-  key: string,
-  load: () => Promise<T>
-): Promise<T> {
-  const pending = pendingRequests.get(key);
-  if (pending) return pending;
-
-  const request = load().finally(() => {
-    pendingRequests.delete(key);
-  });
-  pendingRequests.set(key, request);
-  return request;
 }
 
 function getGitHubToken(): string {
@@ -392,18 +371,16 @@ export async function fetchGitHubContributions(
   options: FetchOptions = {}
 ): Promise<ExtendedContributionData> {
   const key = cacheKey('contributions', username, options.from, options.to);
-  const cached = await contributionsCache.get(key);
+  const LONG_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 
-  const now = Date.now();
-  const isStale = cached?.calendar.lastSyncedAt
-    ? now - new Date(cached.calendar.lastSyncedAt).getTime() > GITHUB_CACHE_TTL_MS
-    : true;
+  const shouldFetch = (cached: ExtendedContributionData) => {
+    const now = Date.now();
+    return cached?.calendar.lastSyncedAt
+      ? now - new Date(cached.calendar.lastSyncedAt).getTime() > GITHUB_CACHE_TTL_MS
+      : true;
+  };
 
-  if (cached && !isStale && !options.bypassCache) {
-    return cached;
-  }
-
-  const load = async () => {
+  const load = async (cached: ExtendedContributionData | null) => {
     const isDeltaSync = cached && cached.calendar.lastSyncedAt && !options.bypassCache;
     let queryFrom = options.from;
 
@@ -528,26 +505,14 @@ export async function fetchGitHubContributions(
 
     calendar.lastSyncedAt = new Date().toISOString();
 
-    // Cache for 7 days to enable delta syncs, staleness is handled logically
-    const LONG_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
-    if (!options.bypassCache) {
-      await contributionsCache.set(
-        key,
-        {
-          calendar,
-          repoContributions,
-        },
-        LONG_CACHE_TTL
-      );
-    }
     return {
       calendar,
       repoContributions,
     };
   };
 
-  if (options.bypassCache) return load();
-  return dedupeRequest(pendingContributions, key, load);
+  if (options.bypassCache) return load(null);
+  return contributionsCache.getOrSet(key, load, LONG_CACHE_TTL, shouldFetch);
 }
 
 export async function fetchUserProfile(
@@ -556,10 +521,6 @@ export async function fetchUserProfile(
 ): Promise<GitHubUserProfile> {
   const key = cacheKey('profile', username);
   const encodedUsername = encodeURIComponent(username);
-  if (!options.bypassCache) {
-    const cached = await profileCache.get(key);
-    if (cached) return cached;
-  }
 
   const load = async () => {
     const res = await fetchWithRetry(`${GITHUB_REST_URL}/users/${encodedUsername}`, {
@@ -581,12 +542,11 @@ export async function fetchUserProfile(
     }
 
     const profile = (await res.json()) as GitHubUserProfile;
-    if (!options.bypassCache) await profileCache.set(key, profile, GITHUB_CACHE_TTL_MS);
     return profile;
   };
 
   if (options.bypassCache) return load();
-  return dedupeRequest(pendingProfiles, key, load);
+  return profileCache.getOrSet(key, load, GITHUB_CACHE_TTL_MS);
 }
 
 export async function fetchUserRepos(
@@ -595,10 +555,6 @@ export async function fetchUserRepos(
 ): Promise<GitHubRepo[]> {
   const key = cacheKey('repos', username);
   const encodedUsername = encodeURIComponent(username);
-  if (!options.bypassCache) {
-    const cached = await reposCache.get(key);
-    if (cached) return cached;
-  }
 
   const load = async () => {
     const firstPageRes = await fetchWithRetry(
@@ -652,12 +608,11 @@ export async function fetchUserRepos(
       }
     }
 
-    if (!options.bypassCache) await reposCache.set(key, allRepos, GITHUB_CACHE_TTL_MS);
     return allRepos;
   };
 
   if (options.bypassCache) return load();
-  return dedupeRequest(pendingRepos, key, load);
+  return reposCache.getOrSet(key, load, GITHUB_CACHE_TTL_MS);
 }
 
 /* ==========================================================================
